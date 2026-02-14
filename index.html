@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otobüs Saatleri</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .station-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .station-card:active {
+            transform: scale(0.98);
+        }
+        
+        .station-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .station-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .station-id {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .bus-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .bus-route {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .route-number {
+            background: #764ba2;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .route-name {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.95rem;
+        }
+        
+        .arrival-time {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            color: white;
+        }
+        
+        .time-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .time-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .time-detail {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            font-size: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            z-index: 100;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
+        }
+        
+        .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+        }
+        
+        .last-update {
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.8rem;
+            margin-top: 20px;
+        }
+        
+        .no-bus {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 Otobüs Saatleri</h1>
+        
+        <div id="forum-card" class="station-card">
+            <div class="loading">
+                <div class="spinner"></div>
+                Yükleniyor...
+            </div>
+        </div>
+        
+        <div id="home-card" class="station-card">
+            <div class="loading">
+                <div class="spinner"></div>
+                Yükleniyor...
+            </div>
+        </div>
+        
+        <div class="last-update" id="last-update"></div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshData()" id="refresh-btn">🔄</button>
+
+    <script>
+        const PROXY = 'https://corsproxy.io/?';
+        
+        const STATIONS = {
+            forum: {
+                id: '118',
+                name: 'FORUM ÇAMLIK',
+                route: '110',
+                url: 'https://ulasim.denizli.bel.tr/UlasimBackend/api/Calc/GetBusDataForStation?waitingStation=118&routeCode=110'
+            },
+            home: {
+                id: '207',
+                name: 'KAYHAN 75.YIL LİSESİ',
+                route: '110D',
+                url: 'https://ulasim.denizli.bel.tr/UlasimBackend/api/Calc/GetBusDataForStation?waitingStation=207&routeCode=110D'
+            }
+        };
+
+        function formatTime(timeStr) {
+            if (!timeStr || timeStr === '0') return 'Varışta';
+            
+            // Parse "0:9:24" format (H:M:S)
+            const parts = timeStr.split(':');
+            if (parts.length === 3) {
+                const hours = parseInt(parts[0]);
+                const minutes = parseInt(parts[1]);
+                const seconds = parseInt(parts[2]);
+                
+                if (hours === 0 && minutes === 0) {
+                    return `${seconds} sn`;
+                } else if (hours === 0) {
+                    return `${minutes} dk ${seconds} sn`;
+                } else {
+                    return `${hours} sa ${minutes} dk`;
+                }
+            }
+            return timeStr;
+        }
+
+        function getMinutesFromTime(timeStr) {
+            if (!timeStr || timeStr === '0') return 0;
+            const parts = timeStr.split(':');
+            if (parts.length === 3) {
+                return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            }
+            return 0;
+        }
+
+        async function fetchStationData(stationKey) {
+            const station = STATIONS[stationKey];
+            try {
+                const response = await fetch(PROXY + encodeURIComponent(station.url));
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                return { success: true, data: data.value, station: station };
+            } catch (error) {
+                console.error(`Error fetching ${stationKey}:`, error);
+                return { success: false, error: error.message, station: station };
+            }
+        }
+
+        function renderStation(result, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (!result.success) {
+                container.innerHTML = `
+                    <div class="station-header">
+                        <div class="station-name">${result.station.name}</div>
+                        <div class="station-id">#${result.station.id}</div>
+                    </div>
+                    <div class="error">
+                        ⚠️ Veri alınamadı. Tekrar deneyin.<br>
+                        <small>${result.error}</small>
+                    </div>
+                `;
+                return;
+            }
+
+            const data = result.data;
+            const bus = data.busList && data.busList[0];
+            
+            if (!bus) {
+                container.innerHTML = `
+                    <div class="station-header">
+                        <div class="station-name">${data.stationName || result.station.name}</div>
+                        <div class="station-id">#${data.stationId || result.station.id}</div>
+                    </div>
+                    <div class="no-bus">
+                        🚫 Şu anda yaklaşan otobüs bulunmuyor
+                    </div>
+                `;
+                return;
+            }
+
+            const timeStr = formatTime(bus.sure);
+            const minutes = getMinutesFromTime(bus.sure);
+            const isClose = minutes <= 5;
+            
+            container.innerHTML = `
+                <div class="station-header">
+                    <div class="station-name">${data.stationName}</div>
+                    <div class="station-id">#${data.stationId}</div>
+                </div>
+                
+                <div class="bus-info">
+                    <div class="bus-route">
+                        <div class="route-number">${bus.hatno}</div>
+                        <div class="route-name">${bus.hatadi}</div>
+                    </div>
+                    
+                    <div class="arrival-time" style="${isClose ? 'background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' : ''}">
+                        <div class="time-label">${isClose ? '🚨 Çok Yakın!' : 'Tahmini Varış'}</div>
+                        <div class="time-value">${timeStr}</div>
+                        <div class="time-detail">
+                            ${bus.kalanduraksayisi} durak kaldı • 
+                            ${bus.plaka && bus.plaka !== 'EnYakinKalkis' ? bus.plaka : 'Yaklaşıyor'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function refreshData() {
+            const btn = document.getElementById('refresh-btn');
+            btn.classList.add('spinning');
+            
+            // Reset to loading state
+            document.getElementById('forum-card').innerHTML = `
+                <div class="loading"><div class="spinner"></div>Yükleniyor...</div>
+            `;
+            document.getElementById('home-card').innerHTML = `
+                <div class="loading"><div class="spinner"></div>Yükleniyor...</div>
+            `;
+            
+            const [forumResult, homeResult] = await Promise.all([
+                fetchStationData('forum'),
+                fetchStationData('home')
+            ]);
+            
+            renderStation(forumResult, 'forum-card');
+            renderStation(homeResult, 'home-card');
+            
+            const now = new Date();
+            document.getElementById('last-update').textContent = 
+                `Son güncelleme: ${now.toLocaleTimeString('tr-TR')}`;
+            
+            btn.classList.remove('spinning');
+        }
+
+        // Initial load
+        refreshData();
+        
+        // Auto refresh every 30 seconds
+        setInterval(refreshData, 30000);
+    </script>
+</body>
+</html>
