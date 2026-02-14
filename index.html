@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -200,7 +200,7 @@
 <body>
     <div class="container">
         <h1>🚌 Otobüs Saatleri</h1>
-        
+
         <div id="forum-card" class="station-card">
             <div class="loading">
                 <div class="spinner"></div>
@@ -217,24 +217,26 @@
         
         <div class="last-update" id="last-update"></div>
     </div>
-    
+
     <button class="refresh-btn" onclick="refreshData()" id="refresh-btn">🔄</button>
 
     <script>
-        const PROXY = 'https://corsproxy.io/?';
+        // YOUR NEW WORKER URL
+        const WORKER_URL = 'https://orange-snowflake-5a26.orhanerday.workers.dev/';
         
         const STATIONS = {
             forum: {
                 id: '118',
                 name: 'FORUM ÇAMLIK',
                 route: '110',
-                url: 'https://ulasim.denizli.bel.tr/UlasimBackend/api/Calc/GetBusDataForStation?waitingStation=118&routeCode=110'
+                // We construct the worker URL with params
+                url: `${WORKER_URL}?waitingStation=118&routeCode=110`
             },
             home: {
                 id: '207',
                 name: 'KAYHAN 75.YIL LİSESİ',
                 route: '110D',
-                url: 'https://ulasim.denizli.bel.tr/UlasimBackend/api/Calc/GetBusDataForStation?waitingStation=207&routeCode=110D'
+                url: `${WORKER_URL}?waitingStation=207&routeCode=110D`
             }
         };
 
@@ -271,10 +273,20 @@
         async function fetchStationData(stationKey) {
             const station = STATIONS[stationKey];
             try {
-                const response = await fetch(PROXY + encodeURIComponent(station.url));
+                // Directly fetch from your worker (no proxy needed)
+                const response = await fetch(station.url);
+                
                 if (!response.ok) throw new Error('Network response was not ok');
-                const data = await response.json();
-                return { success: true, data: data.value, station: station };
+                
+                // Parse the JSON result
+                const jsonResponse = await response.json();
+                
+                // If the worker returns the data wrapped in 'value', extract it.
+                // If not, use the jsonResponse directly.
+                // This covers both cases depending on how the worker was implemented.
+                const data = jsonResponse.value ? jsonResponse.value : jsonResponse;
+
+                return { success: true, data: data, station: station };
             } catch (error) {
                 console.error(`Error fetching ${stationKey}:`, error);
                 return { success: false, error: error.message, station: station };
